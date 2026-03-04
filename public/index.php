@@ -5,384 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎬 Buscador de Licitaciones Audiovisuales + Ciencia</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #f3f4f6;
-            color: #1f2937;
-            line-height: 1.5;
-        }
-
-        .navbar {
-            background: white;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            padding: 1rem 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .navbar h1 {
-            font-size: 1.5rem;
-            color: #4f46e5;
-        }
-
-        .navbar .subtitle {
-            color: #6b7280;
-            font-size: 0.9rem;
-            margin-top: 0.25rem;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 2rem;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .stat-card h3 {
-            font-size: 2rem;
-            color: #4f46e5;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-card p {
-            color: #6b7280;
-            font-size: 0.9rem;
-        }
-
-        .filters {
-            background: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .filter-group {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .filter-group select,
-        .filter-group button {
-            padding: 0.5rem 1rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        .filter-group button {
-            background: #4f46e5;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-
-        .filter-group button:hover {
-            background: #4338ca;
-        }
-
-        .filter-group button.reset {
-            background: #6b7280;
-        }
-
-        .filter-group button.reset:hover {
-            background: #4b5563;
-        }
-
-        .results-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .results-header h2 {
-            font-size: 1.25rem;
-        }
-
-        .results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .result-card {
-            background: white;
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s;
-            border-left: 4px solid transparent;
-        }
-
-        .result-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .result-card.relevante {
-            border-left-color: #10b981;
-            /* Verde si tiene keywords de ciencia+av */
-        }
-
-        .result-card.poco-relevante {
-            border-left-color: #6b7280;
-            /* Gris si son de personal */
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1rem;
-        }
-
-        .badge-group {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .badge.boe {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .badge.doge {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .badge.relevante {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .badge.no-relevante {
-            background: #f3f4f6;
-            color: #4b5563;
-        }
-
-        .badge.keyword {
-            background: #e0e7ff;
-            color: #3730a3;
-            font-size: 0.7rem;
-        }
-
-        .relevancia-tag {
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-        }
-
-        .relevancia-alta {
-            background: #fee2e2;
-            color: #b91c1c;
-        }
-
-        .relevancia-media {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .relevancia-baja {
-            background: #e0e7ff;
-            color: #3730a3;
-        }
-
-        .card-title {
-            font-size: 1rem;
-            margin-bottom: 0.75rem;
-            line-height: 1.5;
-        }
-
-        .card-title a {
-            color: #1f2937;
-            text-decoration: none;
-        }
-
-        .card-title a:hover {
-            color: #4f46e5;
-            text-decoration: underline;
-        }
-
-        .card-meta {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            font-size: 0.85rem;
-            color: #6b7280;
-        }
-
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .keywords-section {
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e5e7eb;
-        }
-
-        .keywords-section h4 {
-            font-size: 0.8rem;
-            color: #6b7280;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .keywords-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .keyword-item {
-            background: #f3f4f6;
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-            font-size: 0.75rem;
-            color: #374151;
-        }
-
-        .keyword-item.ciencia {
-            background: #dbeafe;
-            color: #1e3a8a;
-        }
-
-        .keyword-item.audiovisual {
-            background: #fce7f3;
-            color: #9d174d;
-        }
-
-        .resumen {
-            background: #f9fafb;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-        }
-
-        .resumen p {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: #4b5563;
-        }
-
-        .resumen .valor {
-            font-weight: 600;
-            color: #1f2937;
-        }
-
-        .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 2rem;
-        }
-
-        .pagination button {
-            padding: 0.5rem 1rem;
-            border: 1px solid #e5e7eb;
-            background: white;
-            border-radius: 0.5rem;
-            cursor: pointer;
-        }
-
-        .pagination button:hover {
-            background: #f3f4f6;
-        }
-
-        .pagination button.active {
-            background: #4f46e5;
-            color: white;
-            border-color: #4f46e5;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #6b7280;
-            grid-column: 1/-1;
-        }
-
-        .aviso {
-            background: #fef3c7;
-            border-left: 4px solid #f59e0b;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-        }
-
-        .acciones {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1rem;
-        }
-
-        .btn {
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-size: 0.9rem;
-            text-decoration: none;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-
-        .btn-primary {
-            background: #4f46e5;
-        }
-
-        .btn-primary:hover {
-            background: #4338ca;
-        }
-
-        .btn-secondary {
-            background: #6b7280;
-        }
-
-        .btn-secondary:hover {
-            background: #4b5563;
-        }
-    </style>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
@@ -431,6 +54,7 @@
         // Parámetros de filtro
         $fuente = $_GET['fuente'] ?? '';
         $busqueda = $_GET['busqueda'] ?? '1';
+        $dias = (int)($_GET['dias'] ?? 30);
         $soloRelevantes = $_GET['relevantes'] ?? '';
         $page = (int)($_GET['page'] ?? 1);
         $limit = 12;
@@ -448,6 +72,12 @@
         if ($busqueda) {
             $where[] = "busqueda_id = ?";
             $params[] = $busqueda;
+        }
+
+        // NUEVO FILTRO POR DÍAS
+        if ($dias > 0) {
+            $where[] = "fecha_publicacion >= DATE_SUB(CURDATE(), INTERVAL $dias DAY)";
+            // No añadimos parámetro porque es un número
         }
 
         $whereClause = $where ? "WHERE " . implode(" AND ", $where) : "";
@@ -525,6 +155,15 @@
                     <option value="boe" <?= $fuente == 'boe' ? 'selected' : '' ?>>BOE</option>
                 </select>
 
+                <!-- NUEVO FILTRO DE DÍAS -->
+                <select name="dias">
+                    <option value="7" <?= $dias == 7 ? 'selected' : '' ?>>Últimos 7 días</option>
+                    <option value="15" <?= $dias == 15 ? 'selected' : '' ?>>Últimos 15 días</option>
+                    <option value="30" <?= $dias == 30 ? 'selected' : '' ?>>Últimos 30 días</option>
+                    <option value="90" <?= $dias == 90 ? 'selected' : '' ?>>Últimos 90 días</option>
+                    <option value="0" <?= $dias == 0 ? 'selected' : '' ?>>Todos</option>
+                </select>
+
                 <button type="submit">Filtrar</button>
                 <a href="?" class="btn btn-secondary">Limpiar</a>
             </form>
@@ -583,7 +222,11 @@
                         </div>
                         <div class="meta-item">
                             <span>📅</span>
-                            <span><?= $r['fecha_publicacion'] ? date('d/m/Y', strtotime($r['fecha_publicacion'])) : 'N/D' ?></span>
+                            <span>Pub: <?= $r['fecha_publicacion'] ? date('d/m/Y', strtotime($r['fecha_publicacion'])) : 'N/D' ?></span>
+                        </div>
+                        <div class="meta-item">
+                            <span>🔍</span>
+                            <span>Det: <?= isset($r['ultima_deteccion']) ? date('d/m/Y', strtotime($r['ultima_deteccion'])) : 'N/D' ?></span>
                         </div>
                         <?php if ($r['presupuesto']): ?>
                             <div class="meta-item">
@@ -640,7 +283,7 @@
         <?php if ($total > $limit): ?>
             <div class="pagination">
                 <?php for ($i = 1; $i <= ceil($total / $limit); $i++): ?>
-                    <a href="?page=<?= $i ?>&fuente=<?= urlencode($fuente) ?>&busqueda=<?= urlencode($busqueda) ?>">
+                    <a href="?page=<?= $i ?>&fuente=<?= urlencode($fuente) ?>&busqueda=<?= urlencode($busqueda) ?>&dias=<?= $dias ?>">
                         <button class="<?= $i == $page ? 'active' : '' ?>"><?= $i ?></button>
                     </a>
                 <?php endfor; ?>

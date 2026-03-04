@@ -133,11 +133,23 @@ class DOGE
     {
         $encontrados = 0;
 
+        // FILTRO 1: Solo últimos 30 DÍAS de publicación
+        $fechaLimitePublicacion = strtotime('-30 days');
+        $fechaActual = date('Y-m-d H:i:s');
+
         foreach ($items as $item) {
+            // Obtener fecha de publicación del anuncio
+            $fechaPubStr = (string)$item->pubDate;
+            $fechaPubTimestamp = strtotime($fechaPubStr);
+
+            // FILTRO POR FECHA DE PUBLICACIÓN (solo últimos 30 días)
+            if ($fechaPubTimestamp < $fechaLimitePublicacion) {
+                continue; // Es demasiado antiguo, lo saltamos
+            }
+
             $titulo = (string)$item->title;
             $link = (string)$item->link;
             $descripcion = (string)$item->description;
-            $fechaPub = (string)$item->pubDate;
 
             $titulo = html_entity_decode($titulo, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $descripcion = html_entity_decode($descripcion, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -146,23 +158,86 @@ class DOGE
             $keywordsEncontradas = $this->buscarKeywords($textoCompleto, $palabrasBusqueda);
 
             if (!empty($keywordsEncontradas)) {
-                if ($this->guardarResultado(
-                    $busquedaId,
-                    $titulo,
-                    $descripcion,
-                    $this->extraerOrganismo($descripcion),
-                    null,
-                    date('Y-m-d', strtotime($fechaPub)),
-                    null,
-                    $link,
-                    [],
-                    $keywordsEncontradas
-                )) {
-                    $encontrados++;
+                // Verificar si ya existe en BD
+                $stmt = $this->pdo->prepare("SELECT id, ultima_deteccion FROM resultados WHERE url_detalle = ? AND busqueda_id = ?");
+                $stmt->execute([$link, $busquedaId]);
+                $existente = $stmt->fetch();
+
+                if ($existente) {
+                    // Ya existe: ACTUALIZAMOS la fecha de última detección
+                    $upd = $this->pdo->prepare("UPDATE resultados SET ultima_deteccion = ?, relevancia = ?, palabras_coincidentes = ? WHERE id = ?");
+                    $upd->execute([
+                        $fechaActual,
+                        count($keywordsEncontradas),
+                        json_encode($keywordsEncontradas, JSON_UNESCAPED_UNICODE),
+                        $existente['id']
+                    ]);
+
+                    // Solo contamos como NUEVO si ha pasado más de 7 días desde la última detección
+                    $ultima = strtotime($existente['ultima_deteccion']);
+                    if ($ultima < strtotime('-7 days')) {
+                        $encontrados++;
+                    }
+                } else {
+                    // Es NUEVO: insertamos con ambas fechas
+                    if ($this->guardarResultado(
+                        $busquedaId,
+                        $titulo,
+                        $descripcion,
+                        $this->extraerOrganismo($descripcion),
+                        null,
+                        date('Y-m-d', $fechaPubTimestamp),
+                        null,
+                        $link,
+                        [],
+                        $keywordsEncontradas,
+                        $fechaActual  // ultima_deteccion = ahora
+                    )) {
+                        $encontrados++;
+                    }
                 }
             }
         }
         return $encontrados;
+    }
+
+    // ACTUALIZA también guardarResultado para incluir ultima_deteccion
+    private function guardarResultado($busquedaId, $titulo, $descripcion, $organismo, $presupuesto, $fechaPub, $fechaLim, $url, $cpvs, $keywords, $ultimaDeteccion = null)
+    {
+        try {
+            $stmt = $this->pdo->prepare("SELECT id FROM resultados WHERE url_detalle = ? AND busqueda_id = ?");
+            $stmt->execute([$url, $busquedaId]);
+            if ($stmt->fetch()) return false;
+
+            $stmt = $this->pdo->prepare("
+            INSERT INTO resultados (
+                busqueda_id, fuente_id, titulo, descripcion_corta, organismo,
+                presupuesto, fecha_publicacion, fecha_limite, url_detalle,
+                codigos_cpv, palabras_coincidentes, relevancia,
+                fecha_deteccion, ultima_deteccion
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+        ");
+
+            $stmt->execute([
+                $busquedaId,
+                $this->fuenteId,
+                $titulo,
+                mb_substr($descripcion, 0, 500, 'UTF-8'),
+                $organismo,
+                $presupuesto,
+                $fechaPub,
+                $fechaLim,
+                $url,
+                $cpvs ? implode(',', $cpvs) : null,
+                json_encode($keywords, JSON_UNESCAPED_UNICODE),
+                count($keywords),
+                $ultimaDeteccion ?? date('Y-m-d H:i:s')
+            ]);
+            return true;
+        } catch (PDOException $e) {
+            error_log("Error guardando: " . $e->getMessage());
+            return false;
+        }
     }
 
     private function buscarKeywords($texto, $keywords)
@@ -197,39 +272,6 @@ class DOGE
             return 'Ministerio de ' . trim($match[1]);
         }
         return 'Xunta de Galicia';
-    }
-
-    private function guardarResultado($busquedaId, $titulo, $descripcion, $organismo, $presupuesto, $fechaPub, $fechaLim, $url, $cpvs, $keywords)
-    {
-        try {
-            $stmt = $this->pdo->prepare("SELECT id FROM resultados WHERE url_detalle = ? AND busqueda_id = ?");
-            $stmt->execute([$url, $busquedaId]);
-            if ($stmt->fetch()) return false;
-
-            $stmt = $this->pdo->prepare(
-                "INSERT INTO resultados (busqueda_id, fuente_id, titulo, descripcion_corta, organismo, presupuesto, fecha_publicacion, fecha_limite, url_detalle, codigos_cpv, palabras_coincidentes, relevancia)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            );
-
-            $stmt->execute([
-                $busquedaId,
-                $this->fuenteId,
-                $titulo,
-                mb_substr($descripcion, 0, 500, 'UTF-8'),
-                $organismo,
-                $presupuesto,
-                $fechaPub,
-                $fechaLim,
-                $url,
-                $cpvs ? implode(',', $cpvs) : null,
-                json_encode($keywords, JSON_UNESCAPED_UNICODE),
-                count($keywords)
-            ]);
-            return true;
-        } catch (PDOException $e) {
-            error_log("Error guardando: " . $e->getMessage());
-            return false;
-        }
     }
 
     private function getBusqueda($busquedaId)

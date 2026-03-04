@@ -9,6 +9,12 @@ echo "======================================\n\n";
 $pdo = Database::getInstance();
 $busquedaId = 1; // Usamos la búsqueda que ya tenemos
 
+// Después de $busquedaId = 1;
+$stmt = $pdo->prepare("SELECT palabras_clave FROM busquedas WHERE id = ?");
+$stmt->execute([$busquedaId]);
+$busqueda = $stmt->fetch();
+echo "📌 Palabras clave ACTUALES: " . $busqueda['palabras_clave'] . "\n\n";
+
 $fuente = new DOGE();
 $fuente->probar(); // Verificar configuración
 $resultados = $fuente->ejecutar($busquedaId);
