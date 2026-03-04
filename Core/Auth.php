@@ -1,5 +1,7 @@
 <?php
 // app/Core/Auth.php
+require_once __DIR__ . '/Database.php';
+
 class Auth
 {
     private $pdo;

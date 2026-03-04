@@ -1,5 +1,5 @@
 <?php
-// app/Core/Database.php
+// Core/Database.php
 class Database
 {
     private static $instance = null;
@@ -9,8 +9,8 @@ class Database
     {
         $host = 'localhost';
         $dbname = 'contrato_app';
-        $user = 'root'; // Cambiar por tu usuario
-        $pass = '';     // Cambiar por tu contraseña
+        $user = 'root';
+        $pass = '';
 
         try {
             $this->pdo = new PDO(
