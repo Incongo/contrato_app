@@ -9,6 +9,12 @@ require_once __DIR__ . '/../Core/AuthMiddleware.php';
 // 2. SEGUNDO: Iniciar sesión
 session_start();
 
+// Mostrar mensajes de sesión
+if (isset($_SESSION['mensaje'])) {
+    echo "<div class='aviso'>" . $_SESSION['mensaje'] . "</div>";
+    unset($_SESSION['mensaje']);
+}
+
 // 3. TERCERO: Proteger la página (redirige a login si no hay sesión)
 AuthMiddleware::protegerPagina();
 
@@ -246,10 +252,6 @@ $busquedas = $pdo->query("SELECT id, nombre, palabras_clave FROM busquedas ORDER
                     <button type="submit" name="ejecutar_csic" class="btn btn-secondary">🔄 Ejecutar CSIC</button>
                     <button type="submit" name="ejecutar_bdns" class="btn btn-secondary">🔄 Ejecutar BDNS</button>
                 </div>
-                <div>
-                    <a href="?relevantes=1" class="btn btn-primary">🎯 Solo relevantes</a>
-                    <a href="?" class="btn btn-secondary" style="margin-left: 0.5rem;">⟲ Quitar filtros</a>
-                </div>
             </form>
         </div>
         <div>
@@ -424,6 +426,14 @@ $busquedas = $pdo->query("SELECT id, nombre, palabras_clave FROM busquedas ORDER
                         <span class="badge" style="background: <?= $colorTipo[$tipoOportunidad] ?>20; color: <?= $colorTipo[$tipoOportunidad] ?>; font-weight: bold;">
                             <?= $iconoTipo[$tipoOportunidad] ?> <?= $tipoOportunidad ?>
                         </span>
+                        <!-- NUEVO: Código BDNS (solo para fuente BDNS) -->
+                        <?php if ($r['fuente_nombre'] == 'bdns' && !empty($r['codigo_bdns'])): ?>
+                            <span class="badge" style="background: #ffedd5; color: #9a3412; font-weight: bold;">
+                                📋 BDNS: <?= $r['codigo_bdns'] ?>
+                            </span>
+                        <?php endif; ?>
+
+                        <!-- NUEVO: Oportunidad relevante (si tiene keywords de ciencia y AV) -->
                         <?php if ($esRelevante): ?>
                             <span class="badge" style="background: #d1fae5; color: #065f46; font-weight: bold;">
                                 🎯 OPORTUNIDAD
@@ -433,11 +443,18 @@ $busquedas = $pdo->query("SELECT id, nombre, palabras_clave FROM busquedas ORDER
                     <span class="badge keyword">🔑 <?= count($keywords) ?></span>
                 </div>
 
+                <!-- Título (enlace a detalle.php) -->
                 <h3 class="card-title" style="font-size: 1rem; margin-bottom: 0.5rem; margin-top: 1.5rem;">
-                    <a href="<?= htmlspecialchars($r['url_detalle']) ?>" target="_blank">
+                    <a href="detalle.php?id=<?= $r['id'] ?>">
                         <?= htmlspecialchars(mb_substr($r['titulo'], 0, 150)) ?><?= strlen($r['titulo']) > 150 ? '...' : '' ?>
                     </a>
                 </h3>
+                <!-- Botón de enlace original (para depuración) -->
+                <div style="margin-top: 0.5rem;">
+                    <a href="<?= htmlspecialchars($r['url_detalle']) ?>" target="_blank" class="btn btn-small btn-outline">
+                        🔗 Ver original
+                    </a>
+                </div>
 
                 <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.5rem 0; font-size: 0.9rem; color: #4b5563;">
                     <span>🏛️ <?= htmlspecialchars(mb_substr($organismo, 0, 50)) ?><?= strlen($organismo) > 50 ? '...' : '' ?></span>
@@ -466,6 +483,7 @@ $busquedas = $pdo->query("SELECT id, nombre, palabras_clave FROM busquedas ORDER
                     </div>
                 <?php endif; ?>
 
+                <!-- BOTONES DE ESTADO Y ELIMINAR -->
                 <div style="display: flex; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid #e5e7eb; padding-top: 1rem;">
                     <button onclick="cambiarEstado(<?= $r['id'] ?>, 0)" class="btn btn-secondary btn-small" style="background: <?= $estadoActual == 0 ? '#4f46e5' : '#6b7280' ?>; color: white; flex: 1; padding: 0.4rem;">
                         ⏳ Pendiente
@@ -476,6 +494,14 @@ $busquedas = $pdo->query("SELECT id, nombre, palabras_clave FROM busquedas ORDER
                     <button onclick="cambiarEstado(<?= $r['id'] ?>, 2)" class="btn btn-secondary btn-small" style="background: <?= $estadoActual == 2 ? '#ef4444' : '#6b7280' ?>; color: white; flex: 1; padding: 0.4rem;">
                         ❌ Descartado
                     </button>
+
+                    <!-- NUEVO BOTÓN ELIMINAR -->
+                    <form method="POST" action="eliminar_resultado.php" style="display: inline;" onsubmit="return confirm('¿Eliminar permanentemente este resultado?')">
+                        <input type="hidden" name="id" value="<?= $r['id'] ?>">
+                        <button type="submit" class="btn btn-secondary btn-small" style="background: #6b7280; color: white; padding: 0.4rem 0.8rem;" title="Eliminar">
+                            🗑️
+                        </button>
+                    </form>
                 </div>
             </div>
         <?php endforeach; ?>
