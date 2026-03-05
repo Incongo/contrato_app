@@ -9,6 +9,18 @@ class BOE
     private $pdo;
     private $fuenteId;
 
+    private $cpvServicios = [
+        '92100000', // Servicios cinematográficos y de vídeo
+        '92111000', // Servicios de producción de películas
+        '92112000', // Servicios de producción de vídeo
+        '92113000', // Servicios de postproducción
+        '92220000', // Servicios de televisión
+        '79341000', // Servicios de publicidad
+        '79961000', // Servicios de fotografía
+        '72300000', // Servicios de Internet
+        '72400000'  // Servicios de Internet y www
+    ];
+
     public function __construct()
     {
         $this->pdo = Database::getInstance();

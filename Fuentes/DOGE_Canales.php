@@ -1,240 +1,169 @@
 <?php
 // Fuentes/DOGE_Canales.php
-// Configuración de canales RSS del DOGE basada en la captura
+// Configuración de TODOS los canales RSS del DOGE
 
 class DOGE_Canales
 {
-
-    // Secciones que pueden contener licitaciones de servicios audiovisuales
+    // ============================================
+    // 1. SECCIONES COMPLETAS (basado en tu captura)
+    // ============================================
     public static function getSecciones()
     {
         return [
-            'sumario' => [
-                'nombre' => 'Sumario completo',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Sumario_gl.rss',
-                'relevancia' => 'baja' // Demasiado general
-            ],
-            'disposiciones' => [
-                'nombre' => 'III. Outras disposicións',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion3_gl.rss',
-                'relevancia' => 'media' // Puede incluir convocatorias
-            ],
-            'oposiciones' => [
-                'nombre' => 'IV. Oposicións e concursos',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion4_gl.rss',
-                'relevancia' => 'alta' // ¡Concursos públicos!
-            ],
-            'anuncios_autonomicos' => [
-                'nombre' => 'VI. Anuncios - a) Administración autonómica',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion6a_gl.rss',
-                'relevancia' => 'muy_alta' // LICITACIONES
-            ],
-            'anuncios_locales' => [
-                'nombre' => 'VI. Anuncios - b) Administración local',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion6b_gl.rss',
-                'relevancia' => 'muy_alta' // Ayuntamientos
-            ],
-            'anuncios_otros' => [
-                'nombre' => 'VI. Anuncios - c) Outros anuncios',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion6c_gl.rss',
-                'relevancia' => 'media'
-            ]
+            'sumario' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Sumario_gl.rss',
+            'disposiciones' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion1_gl.rss',      // I. Disposiciones generales
+            'autoridades_personal_a' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion2a_gl.rss', // II.A Cesamentos
+            'autoridades_personal_b' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion2b_gl.rss', // II.B Nomeamentos
+            'autoridades_personal_c' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion2c_gl.rss', // II.C Substitucións
+            'otras_disposiciones' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion3_gl.rss', // III. Outras disposicións
+            'oposiciones' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion4_gl.rss',         // IV. Oposicións e concursos
+            'administracion_justicia' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion5_gl.rss', // V. Administración de xustiza
+            'anuncios_autonomicos' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion6a_gl.rss',   // VI.A Administración autonómica
+            'anuncios_locales' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion6b_gl.rss',       // VI.B Administración local
+            'anuncios_otros' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Seccion6c_gl.rss',         // VI.C Outros anuncios
         ];
     }
 
-    // Temáticas prioritarias para audiovisual + ciencia
+    // ============================================
+    // 2. TEMÁTICAS (las que aparecen en tu captura)
+    // ============================================
     public static function getTematicas()
     {
         return [
-            'ciencia_tecnologia' => [
-                'nombre' => 'Ciencia e tecnoloxía',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21001_gl.rss', // Asumiendo código
-                'relevancia' => 'muy_alta',
-                'keywords_extra' => ['investigación', 'divulgación', 'científico']
-            ],
-            'cultura' => [
-                'nombre' => 'Cultura, ocio e deporte',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21002_gl.rss',
-                'relevancia' => 'alta',
-                'keywords_extra' => ['cultural', 'audiovisual', 'eventos']
-            ],
-            'educacion' => [
-                'nombre' => 'Ensino e formación',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21003_gl.rss',
-                'relevancia' => 'alta',
-                'keywords_extra' => ['educativo', 'formación', 'didáctico']
-            ],
-            'salud' => [
-                'nombre' => 'Saúde, asistencia sanitaria e servizos sociais',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21004_gl.rss',
-                'relevancia' => 'media',
-                'keywords_extra' => ['salud', 'sanitario', 'divulgación médica']
-            ],
-            'medio_ambiente' => [
-                'nombre' => 'Medio ambiente',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21005_gl.rss',
-                'relevancia' => 'muy_alta', // Cambio climático, naturaleza
-                'keywords_extra' => ['cambio climático', 'biodiversidad', 'sostenibilidad']
-            ],
-            'economia_empresa' => [
-                'nombre' => 'Economía, empresa e emprego',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21006_gl.rss',
-                'relevancia' => 'media',
-                'keywords_extra' => ['empresa', 'emprendimiento']
-            ],
-            'territorio' => [
-                'nombre' => 'Territorio, vivenda e transporte',
-                'url' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21007_gl.rss',
-                'relevancia' => 'baja'
-            ]
+            // Administración pública
+            'administracion_publica' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21008_gl.rss',
+
+            // Cultura, ocio y deporte
+            'cultura' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21002_gl.rss',
+
+            // Enseñanza y formación
+            'educacion' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21003_gl.rss',
+
+            // Salud, asistencia sanitaria y servicios sociales
+            'salud' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21004_gl.rss',
+
+            // Ciencia y tecnología
+            'ciencia_tecnologia' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21001_gl.rss',
+
+            // Economía, empresa y empleo
+            'economia_empresa' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21006_gl.rss',
+
+            // Medio ambiente
+            'medio_ambiente' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21005_gl.rss',
+
+            // Territorio, vivienda y transporte
+            'territorio' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia21007_gl.rss',
+
+            // Otras temáticas de tu captura
+            'agricultura' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia22001_gl.rss',
+            'pesca' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia22002_gl.rss',
+            'industria' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia22003_gl.rss',
+            'energia' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia22004_gl.rss',
+            'minas' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia22005_gl.rss',
+            'comercio' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia22006_gl.rss',
+            'turismo' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia22007_gl.rss',
+            'consumo' => 'https://www.xunta.gal/diario-oficial-galicia/rss/Taxonomia22008_gl.rss',
         ];
     }
 
-    // Tipos de documentos que nos interesan
+    // ============================================
+    // 3. TIPOS DE DOCUMENTO (si existen)
+    // ============================================
     public static function getTiposDocumento()
     {
         return [
-            'anuncio' => [
-                'nombre' => 'Anuncio',
-                'patron' => '/Anuncio/',
-                'relevancia' => 'alta'
-            ],
-            'resolucion' => [
-                'nombre' => 'Resolución',
-                'patron' => '/Resolución/',
-                'relevancia' => 'media' // Puede ser convocatoria
-            ],
-            'convenio' => [
-                'nombre' => 'Convenio',
-                'patron' => '/Convenio/',
-                'relevancia' => 'alta' // Colaboraciones
-            ],
-            'contrato' => [
-                'nombre' => 'Contrato',
-                'patron' => '/Contrato/',
-                'relevancia' => 'muy_alta' // DIRECTAMENTE LO QUE BUSCAMOS
-            ],
-            'licitacion' => [
-                'nombre' => 'Licitación',
-                'patron' => '/Licitación/i',
-                'relevancia' => 'muy_alta'
-            ],
-            'concurso' => [
-                'nombre' => 'Concurso',
-                'patron' => '/Concurso/',
-                'relevancia' => 'muy_alta'
-            ]
+            'anuncios' => 'https://www.xunta.gal/diario-oficial-galicia/rss/TipoAnuncio_gl.rss',
+            'resoluciones' => 'https://www.xunta.gal/diario-oficial-galicia/rss/TipoResolucion_gl.rss',
+            'decretos' => 'https://www.xunta.gal/diario-oficial-galicia/rss/TipoDecreto_gl.rss',
+            'leyes' => 'https://www.xunta.gal/diario-oficial-galicia/rss/TipoLei_gl.rss',
+            'edictos' => 'https://www.xunta.gal/diario-oficial-galicia/rss/TipoEdicto_gl.rss',
         ];
     }
 
-    // Palabras clave de CIENCIA (lo que documentamos)
-    public static function getPalabrasCiencia()
+    // ============================================
+    // 4. POR COLECTIVOS (de tu captura)
+    // ============================================
+    public static function getColectivos()
     {
         return [
-            // Divulgación general
-            'divulgación científica',
-            'cultura científica',
-            'comunicación científica',
-            'investigación',
-            'I+D',
-            'I+D+i',
-
-            // Astronomía y espacio
-            'astronomía',
-            'astrofísica',
-            'espacio',
-            'telescopio',
-            'observatorio astronómico',
-            'turismo astronómico',
-
-            // Medio ambiente y clima
-            'cambio climático',
-            'medio ambiente',
-            'sostenibilidad',
-            'transición ecológica',
-            'biodiversidad',
-            'naturaleza',
-            'ecosistema',
-            'conservación ambiental',
-
-            // Tecnología
-            'tecnología',
-            'innovación',
-            'inteligencia artificial',
-            'ciencia ciudadana'
+            'agricultores' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoAgricultores_gl.rss',
+            'asociaciones' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoAsociacions_gl.rss',
+            'ciudadanos' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoCidadans_gl.rss',
+            'entidades_locales' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoEntidadesLocais_gl.rss',
+            'empresas' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoEmpresas_gl.rss',
+            'investigadores' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoInvestigadores_gl.rss',
+            'jovenes' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoMozos_gl.rss',
+            'autonomos' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoAutonomos_gl.rss',
+            'desempleados' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoDesempregados_gl.rss',
+            'discapacidad' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoDiscapacidade_gl.rss',
+            'emprendedores' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoEmprendedores_gl.rss',
+            'mujeres' => 'https://www.xunta.gal/diario-oficial-galicia/rss/ColectivoMulleres_gl.rss',
         ];
     }
 
-    // Palabras clave de AUDIOVISUAL (lo que hacemos)
-    public static function getPalabrasAudiovisual()
+    // ============================================
+    // 5. POR RANGOS NORMATIVOS
+    // ============================================
+    public static function getRangos()
     {
         return [
-            // Servicios generales
-            'producción audiovisual',
-            'servicios audiovisuales',
-            'producción de vídeo',
-            'contenido multimedia',
-            'realización audiovisual',
-
-            // Tipos de trabajo
-            'vídeo divulgativo',
-            'documental',
-            'streaming',
-            'retransmisión',
-            'cobertura audiovisual',
-            'grabación de eventos',
-            'animación',
-            'infografía',
-            'postproducción',
-            'edición de vídeo',
-
-            // Contenido específico
-            'contenido educativo',
-            'material didáctico',
-            'campaña audiovisual',
-            'pieza audiovisual',
-
-            // Equipo y personal
-            'cámara',
-            'equipo de grabación',
-            'servicios de fotografía'
+            'leyes' => 'https://www.xunta.gal/diario-oficial-galicia/rss/RangoLei_gl.rss',
+            'decretos' => 'https://www.xunta.gal/diario-oficial-galicia/rss/RangoDecreto_gl.rss',
+            'ordenes' => 'https://www.xunta.gal/diario-oficial-galicia/rss/RangoOrde_gl.rss',
+            'resoluciones' => 'https://www.xunta.gal/diario-oficial-galicia/rss/RangoResolucion_gl.rss',
+            'acuerdos' => 'https://www.xunta.gal/diario-oficial-galicia/rss/RangoAcordo_gl.rss',
+            'anuncios' => 'https://www.xunta.gal/diario-oficial-galicia/rss/RangoAnuncio_gl.rss',
         ];
     }
 
-    // Combinar todas las palabras clave (para filtrado)
-    public static function getTodasPalabras()
-    {
-        return array_merge(
-            self::getPalabrasCiencia(),
-            self::getPalabrasAudiovisual()
-        );
-    }
-
-    // Obtener URLs relevantes para una búsqueda
-    public static function getUrlsRelevantes($relevancia_minima = 'media')
+    // ============================================
+    // 6. OBTENER TODAS LAS URLs
+    // ============================================
+    public static function getTodasLasUrls()
     {
         $urls = [];
 
-        $secciones = self::getSecciones();
-        foreach ($secciones as $key => $seccion) {
-            if ($this->compararRelevancia($seccion['relevancia'], $relevancia_minima)) {
-                $urls[$key] = $seccion['url'];
-            }
+        foreach (self::getSecciones() as $nombre => $url) {
+            $urls["seccion_$nombre"] = $url;
         }
 
-        $tematicas = self::getTematicas();
-        foreach ($tematicas as $key => $tematica) {
-            if ($this->compararRelevancia($tematica['relevancia'], $relevancia_minima)) {
-                $urls[$key] = $tematica['url'];
-            }
+        foreach (self::getTematicas() as $nombre => $url) {
+            $urls["tema_$nombre"] = $url;
+        }
+
+        foreach (self::getTiposDocumento() as $nombre => $url) {
+            $urls["tipo_$nombre"] = $url;
+        }
+
+        foreach (self::getColectivos() as $nombre => $url) {
+            $urls["colectivo_$nombre"] = $url;
+        }
+
+        foreach (self::getRangos() as $nombre => $url) {
+            $urls["rango_$nombre"] = $url;
         }
 
         return $urls;
     }
 
-    private static function compararRelevancia($actual, $minima)
+    // ============================================
+    // 7. OBTENER URLs POR GRUPO (opcional)
+    // ============================================
+    public static function getUrlsPorGrupo($grupo)
     {
-        $niveles = ['baja' => 1, 'media' => 2, 'alta' => 3, 'muy_alta' => 4];
-        return $niveles[$actual] >= $niveles[$minima];
+        switch ($grupo) {
+            case 'secciones':
+                return self::getSecciones();
+            case 'tematicas':
+                return self::getTematicas();
+            case 'tipos':
+                return self::getTiposDocumento();
+            case 'colectivos':
+                return self::getColectivos();
+            case 'rangos':
+                return self::getRangos();
+            default:
+                return [];
+        }
     }
 }

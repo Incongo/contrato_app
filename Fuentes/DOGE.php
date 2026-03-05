@@ -1,6 +1,6 @@
 <?php
 // Fuentes/DOGE.php
-// Diario Oficial de Galicia - Versión con Canales Organizados
+// Diario Oficial de Galicia - Versión CORREGIDA
 
 require_once __DIR__ . '/../Core/Database.php';
 require_once __DIR__ . '/DOGE_Canales.php'; // Importamos la configuración
@@ -9,13 +9,22 @@ class DOGE
 {
     private $pdo;
     private $fuenteId;
-    private $canales;
 
+    private $cpvServicios = [
+        '92100000',
+        '92111000',
+        '92112000',
+        '92113000',
+        '92220000',
+        '79341000',
+        '79961000',
+        '72300000',
+        '72400000'
+    ];
     public function __construct()
     {
         $this->pdo = Database::getInstance();
         $this->fuenteId = $this->obtenerFuenteId();
-        $this->canales = new DOGE_Canales(); // Cargamos la configuración
     }
 
     private function obtenerFuenteId()
@@ -38,7 +47,7 @@ class DOGE
 
     public function ejecutar($busquedaId)
     {
-        echo "\n🔍 Buscando en DOGE (Galicia) con canales organizados...\n";
+        echo "\n🔍 Buscando en DOGE (Galicia)...\n";
 
         try {
             $busqueda = $this->getBusqueda($busquedaId);
@@ -46,41 +55,30 @@ class DOGE
 
             echo "📋 Búsqueda: {$busqueda['nombre']}\n";
 
-            // Usar las palabras clave del usuario O las predefinidas
-            $palabrasUsuario = array_map('trim', explode(',', $busqueda['palabras_clave']));
-            $palabrasCiencia = $this->canales->getPalabrasCiencia();
-            $palabrasAV = $this->canales->getPalabrasAudiovisual();
+            // Usar SOLO las palabras clave del usuario
+            $palabrasBusqueda = array_map('trim', explode(',', $busqueda['palabras_clave']));
+            echo "📌 Palabras clave: " . implode(', ', $palabrasBusqueda) . "\n";
 
-            // Combinamos todas
-            $todasPalabras = array_merge($palabrasUsuario, $palabrasCiencia, $palabrasAV);
-            $todasPalabras = array_unique($todasPalabras); // Eliminar duplicados
-
-            echo "📌 Total palabras clave: " . count($todasPalabras) . "\n";
+            // Obtener TODAS las URLs de DOGE_Canales
+            $urls = DOGE_Canales::getTodasLasUrls();
+            echo "📡 Total canales a probar: " . count($urls) . "\n";
 
             $totalEncontrados = 0;
-
-            // 1. Probar SECCIONES (prioridad alta)
-            echo "\n📑 Probando Secciones:\n";
-            $secciones = $this->canales->getSecciones();
-            foreach ($secciones as $key => $seccion) {
-                echo "   {$seccion['nombre']}: ";
-                $encontrados = $this->procesarCanal($seccion['url'], $busqueda['id'], $todasPalabras);
-                echo "$encontrados resultados.\n";
-                $totalEncontrados += $encontrados;
-            }
-
-            // 2. Probar TEMÁTICAS (prioridad media/alta)
-            echo "\n🏷️ Probando Temáticas:\n";
-            $tematicas = $this->canales->getTematicas();
             $contador = 0;
-            foreach ($tematicas as $key => $tematica) {
-                echo "   {$tematica['nombre']}: ";
-                $encontrados = $this->procesarCanal($tematica['url'], $busqueda['id'], $todasPalabras);
-                echo "$encontrados resultados.\n";
+
+            foreach ($urls as $nombre => $url) {
+                $contador++;
+                echo "\n📡 Canal $contador: $nombre\n";
+
+                $encontrados = $this->procesarCanal($url, $busqueda['id'], $palabrasBusqueda);
+                echo "   → $encontrados resultados\n";
                 $totalEncontrados += $encontrados;
 
-                $contador++;
-                if ($contador % 5 == 0) sleep(1); // Pausa cada 5
+                // Pausa cada 10 canales para no saturar
+                if ($contador % 10 == 0) {
+                    echo "   ⏱️ Pausa de 1 segundo...\n";
+                    sleep(1);
+                }
             }
 
             echo "\n✅ DOGE procesado: $totalEncontrados resultados totales\n";
@@ -99,7 +97,7 @@ class DOGE
         }
 
         $tamaño = strlen($xmlData);
-        echo "($tamaño bytes) ";
+        echo "   Tamaño: $tamaño bytes\n";
 
         $rss = simplexml_load_string($xmlData, 'SimpleXMLElement', LIBXML_NOCDATA | LIBXML_NOWARNING);
         if (!$rss || !isset($rss->channel->item)) {
@@ -124,6 +122,7 @@ class DOGE
         curl_close($ch);
 
         if ($httpCode !== 200 || !$xmlData) {
+            echo "   HTTP $httpCode - No se pudo obtener RSS\n";
             return null;
         }
         return $xmlData;
@@ -184,14 +183,14 @@ class DOGE
                         $busquedaId,
                         $titulo,
                         $descripcion,
-                        $this->extraerOrganismo($descripcion),
+                        $this->extraerOrganismo($descripcion, $titulo),
                         null,
                         date('Y-m-d', $fechaPubTimestamp),
                         null,
                         $link,
                         [],
                         $keywordsEncontradas,
-                        $fechaActual  // ultima_deteccion = ahora
+                        $fechaActual
                     )) {
                         $encontrados++;
                     }
@@ -201,7 +200,6 @@ class DOGE
         return $encontrados;
     }
 
-    // ACTUALIZA también guardarResultado para incluir ultima_deteccion
     private function guardarResultado($busquedaId, $titulo, $descripcion, $organismo, $presupuesto, $fechaPub, $fechaLim, $url, $cpvs, $keywords, $ultimaDeteccion = null)
     {
         try {
@@ -210,13 +208,13 @@ class DOGE
             if ($stmt->fetch()) return false;
 
             $stmt = $this->pdo->prepare("
-            INSERT INTO resultados (
-                busqueda_id, fuente_id, titulo, descripcion_corta, organismo,
-                presupuesto, fecha_publicacion, fecha_limite, url_detalle,
-                codigos_cpv, palabras_coincidentes, relevancia,
-                fecha_deteccion, ultima_deteccion
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
-        ");
+                INSERT INTO resultados (
+                    busqueda_id, fuente_id, titulo, descripcion_corta, organismo,
+                    presupuesto, fecha_publicacion, fecha_limite, url_detalle,
+                    codigos_cpv, palabras_coincidentes, relevancia,
+                    fecha_deteccion, ultima_deteccion
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+            ");
 
             $stmt->execute([
                 $busquedaId,
@@ -257,18 +255,20 @@ class DOGE
         return $encontradas;
     }
 
-    private function extraerOrganismo($descripcion)
+    private function extraerOrganismo($descripcion, $titulo)
     {
-        if (preg_match('/CONSELLERÍA DE ([^<.,]+)/i', $descripcion, $match)) {
+        $texto = $descripcion . ' ' . $titulo;
+
+        if (preg_match('/CONSELLERÍA DE ([^<.,]+)/i', $texto, $match)) {
             return 'Consellería de ' . trim($match[1]);
         }
-        if (preg_match('/AYUNTAMIENTO DE ([^<.,]+)/i', $descripcion, $match)) {
+        if (preg_match('/AYUNTAMIENTO DE ([^<.,]+)/i', $texto, $match)) {
             return 'Ayuntamiento de ' . trim($match[1]);
         }
-        if (preg_match('/DIPUTACIÓN DE ([^<.,]+)/i', $descripcion, $match)) {
+        if (preg_match('/DIPUTACIÓN DE ([^<.,]+)/i', $texto, $match)) {
             return 'Diputación de ' . trim($match[1]);
         }
-        if (preg_match('/MINISTERIO DE ([^<.,]+)/i', $descripcion, $match)) {
+        if (preg_match('/MINISTERIO DE ([^<.,]+)/i', $texto, $match)) {
             return 'Ministerio de ' . trim($match[1]);
         }
         return 'Xunta de Galicia';
@@ -285,6 +285,7 @@ class DOGE
     {
         echo "✅ DOGE configurado correctamente\n";
         echo "📁 Fuente ID: " . $this->fuenteId . "\n";
+        echo "📡 Canales disponibles: " . count(DOGE_Canales::getTodasLasUrls()) . "\n";
         return true;
     }
 }

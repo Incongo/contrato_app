@@ -11,6 +11,17 @@ class DIBAAPI
     private $fuenteId;
     private $apiBase = 'https://api.diba.cat/dadesobertes/cido/v1/contractacions';
 
+    private $cpvServicios = [
+        '92100000',
+        '92111000',
+        '92112000',
+        '92113000',
+        '92220000',
+        '79341000',
+        '79961000',
+        '72300000',
+        '72400000'
+    ];
     // Mapeo de IDs de materias a nombres descriptivos (basado en los IDs de tu URL)
     private $materias = [
         230 => 'Publicitat',
