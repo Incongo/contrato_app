@@ -69,6 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exec('php ' . __DIR__ . '/../scripts/prueba_csic.php 2>&1', $output, $return);
         echo "<div class='aviso'>✅ CSIC ejecutado. " . ($return === 0 ? 'OK' : 'Error') . "</div>";
     }
+    if (isset($_POST['ejecutar_placsp'])) {
+        echo "<div class='aviso'>⏳ Ejecutando PLACSP...</div>";
+        ob_flush();
+        flush();
+        exec('php ' . __DIR__ . '/../scripts/prueba_placsp.php 2>&1', $output, $return);
+        echo "<div class='aviso'>✅ PLACSP ejecutado. " . ($return === 0 ? 'OK' : 'Error') . "</div>";
+    }
     if (isset($_POST['ejecutar_bdns'])) {
         echo "<div class='aviso'>⏳ Ejecutando BDNS...</div>";
         ob_flush();
@@ -96,6 +103,7 @@ $stats = [
     'zaragoza' => $pdo->query("SELECT COUNT(*) FROM resultados WHERE fuente_id = (SELECT id FROM fuentes WHERE nombre_corto = 'zaragoza')")->fetchColumn(),
     'csic' => $pdo->query("SELECT COUNT(*) FROM resultados WHERE fuente_id = (SELECT id FROM fuentes WHERE nombre_corto = 'csic')")->fetchColumn(),
     'bdns' => $pdo->query("SELECT COUNT(*) FROM resultados WHERE fuente_id = (SELECT id FROM fuentes WHERE nombre_corto = 'bdns')")->fetchColumn(),
+    'placsp' => $pdo->query("SELECT COUNT(*) FROM resultados WHERE fuente_id = (SELECT id FROM fuentes WHERE nombre_corto = 'placsp')")->fetchColumn(),
     'ultima' => $pdo->query("SELECT MAX(fecha_deteccion) FROM resultados")->fetchColumn()
 ];
 
@@ -232,6 +240,10 @@ $busquedas = $pdo->query("SELECT id, nombre, palabras_clave FROM busquedas ORDER
                 <p>BDNS</p>
             </div>
             <div class="stat-card">
+                <h3><?= $stats['placsp'] ?></h3>
+                <p>PLACSP</p>
+            </div>
+            <div class="stat-card">
                 <h3><?= $stats['ultima'] ? date('d/m/Y', strtotime($stats['ultima'])) : '-' ?></h3>
                 <p>Última detección</p>
             </div>
@@ -251,6 +263,7 @@ $busquedas = $pdo->query("SELECT id, nombre, palabras_clave FROM busquedas ORDER
                     <button type="submit" name="ejecutar_zaragoza" class="btn btn-secondary">🔄 Ejecutar Zaragoza</button>
                     <button type="submit" name="ejecutar_csic" class="btn btn-secondary">🔄 Ejecutar CSIC</button>
                     <button type="submit" name="ejecutar_bdns" class="btn btn-secondary">🔄 Ejecutar BDNS</button>
+                    <button type="submit" name="ejecutar_placsp" class="btn btn-secondary">🔄 Ejecutar PLACSP</button>
                 </div>
             </form>
         </div>
@@ -284,6 +297,7 @@ $busquedas = $pdo->query("SELECT id, nombre, palabras_clave FROM busquedas ORDER
                 <option value="zaragoza" <?= $fuente == 'zaragoza' ? 'selected' : '' ?>>Zaragoza</option>
                 <option value="csic" <?= $fuente == 'csic' ? 'selected' : '' ?>>CSIC</option>
                 <option value="bdns" <?= $fuente == 'bdns' ? 'selected' : '' ?>>BDNS</option>
+                <option value="placsp" <?= $fuente == 'placsp' ? 'selected' : '' ?>>PLACSP</option>
             </select>
 
             <select name="dias">

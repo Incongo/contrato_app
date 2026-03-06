@@ -1,22 +1,23 @@
 <?php
-// Fuentes/CSIC.php
-// Consejo Superior de Investigaciones Científicas - API datos.gob.es
+// Fuentes/PLACSP.php
+// Plataforma de Contratación del Sector Público - Feed ATOM oficial
 
 require_once __DIR__ . '/../Core/Database.php';
 
-class CSIC
+class PLACSP
 {
     private $pdo;
     private $fuenteId;
 
-    private $cpvServicios = [
-        '92100000',
-        '92111000',
-        '92112000',
-        '92113000',
-        '92220000',
-        '79341000',
-        '79961000'
+    // CPVs de servicios audiovisuales
+    private $cpvPrioritarios = [
+        '92100000', // Servicios cinematográficos y de vídeo
+        '92111000', // Servicios de producción de películas
+        '92112000', // Servicios de producción de vídeo
+        '92113000', // Servicios de postproducción
+        '92220000', // Servicios de televisión
+        '79341000', // Servicios de publicidad
+        '79961000'  // Servicios de fotografía
     ];
 
     public function __construct()
@@ -28,76 +29,98 @@ class CSIC
     private function obtenerFuenteId()
     {
         try {
-            $stmt = $this->pdo->prepare("SELECT id FROM fuentes WHERE nombre_corto = 'csic'");
+            $stmt = $this->pdo->prepare("SELECT id FROM fuentes WHERE nombre_corto = 'placsp'");
             $stmt->execute();
             $result = $stmt->fetch();
 
             if (!$result) {
                 $stmt = $this->pdo->prepare("INSERT INTO fuentes (nombre, nombre_corto, tipo, url_base, script_asociado) VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([
-                    'CSIC - Contratación',
-                    'csic',
+                    'Plataforma de Contratación',
+                    'placsp',
                     'licitacion',
-                    'https://datos.gob.es',
-                    'CSIC.php'
+                    'https://contrataciondelsectorpublico.gob.es',
+                    'PLACSP.php'
                 ]);
                 return $this->pdo->lastInsertId();
             }
             return $result['id'];
         } catch (PDOException $e) {
-            die("Error con fuente CSIC: " . $e->getMessage());
+            die("Error con fuente PLACSP: " . $e->getMessage());
         }
     }
 
-    public function ejecutar($busquedaId, $dias = 365)
+    public function ejecutar($busquedaId, $dias = 30)
     {
-        echo "\n🔍 Buscando en CSIC (datos.gob.es)...\n";
+        echo "\n🔍 Buscando en Plataforma de Contratación (feed ATOM)...\n";
 
         try {
             $busqueda = $this->getBusqueda($busquedaId);
             if (!$busqueda) throw new Exception("Búsqueda no encontrada");
 
-            // API CKAN de datos.gob.es
-            $url = "https://datos.gob.es/apidata/catalog/dataset.json?publisher=csic&sort=modified+desc";
-
-            echo "📡 Consultando: $url\n";
-
-            $jsonData = $this->callAPI($url);
-            if (!$jsonData) {
-                throw new Exception("No se pudo obtener datos");
-            }
-
-            $datos = json_decode($jsonData, true);
-
-            if (!isset($datos['result']['items'])) {
-                echo "📊 No se encontraron datasets\n";
-                return 0;
-            }
-
-            $items = $datos['result']['items'];
-            echo "📊 Total datasets: " . count($items) . "\n";
-
             $palabrasUsuario = array_map('trim', explode(',', $busqueda['palabras_clave']));
             $encontrados = 0;
 
-            foreach ($items as $item) {
-                $titulo = $item['title'][0]['value'] ?? 'Sin título';
-                $descripcion = $item['description'][0]['value'] ?? '';
-                $urlDataset = $item['distribution'][0]['accessURL'] ?? $item['landingPage'] ?? '#';
+            // Calcular fecha límite (últimos X días)
+            $fechaLimite = date('Y-m-d', strtotime("-$dias days"));
 
-                $textoCompleto = $titulo . ' ' . $descripcion;
-                $keywordsEncontradas = $this->buscarKeywords($textoCompleto, $palabrasUsuario);
+            // URL del feed ATOM completo
+            $url = "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom";
+            
+            echo "📡 Consultando feed maestro: $url\n";
+            
+            $xmlData = $this->obtenerFeed($url);
+            if (!$xmlData) {
+                throw new Exception("No se pudo obtener el feed");
+            }
 
-                if (!empty($keywordsEncontradas)) {
+            $xml = simplexml_load_string($xmlData, 'SimpleXMLElement', LIBXML_NOCDATA | LIBXML_NOWARNING);
+            if (!$xml || !isset($xml->entry)) {
+                echo "❌ No hay entradas en el feed\n";
+                return 0;
+            }
+
+            $items = $xml->entry;
+            echo "📊 Total licitaciones en feed: " . count($items) . "\n";
+
+            foreach ($items as $entry) {
+                $titulo = (string)$entry->title;
+                $link = (string)$entry->link['href'];
+                $descripcion = (string)$entry->summary;
+                $fechaPub = (string)$entry->updated;
+
+                // Filtrar por fecha
+                if (strtotime($fechaPub) < strtotime($fechaLimite)) {
+                    continue;
+                }
+
+                // Buscar CPV en el contenido
+                $contieneCPV = false;
+                $contenidoCompleto = $titulo . ' ' . $descripcion;
+                foreach ($this->cpvPrioritarios as $cpv) {
+                    if (strpos($contenidoCompleto, $cpv) !== false) {
+                        $contieneCPV = true;
+                        break;
+                    }
+                }
+
+                // Buscar palabras clave del usuario
+                $keywordsEncontradas = $this->buscarKeywords($contenidoCompleto, $palabrasUsuario);
+
+                if ($contieneCPV || !empty($keywordsEncontradas)) {
+                    if ($contieneCPV && empty($keywordsEncontradas)) {
+                        $keywordsEncontradas = ['CPV prioritario'];
+                    }
+
                     if ($this->guardarResultado(
                         $busquedaId,
                         $titulo,
                         $descripcion,
-                        'CSIC',
+                        'Organismo contratante', // Se puede extraer del XML si existe
                         null,
-                        date('Y-m-d', strtotime($item['modified'] ?? 'now')),
+                        date('Y-m-d', strtotime($fechaPub)),
                         null,
-                        $urlDataset,
+                        $link,
                         $keywordsEncontradas
                     )) {
                         $encontrados++;
@@ -106,29 +129,25 @@ class CSIC
                 }
             }
 
-            echo "✅ CSIC procesado: $encontrados resultados\n";
+            echo "\n✅ PLACSP procesado: $encontrados resultados nuevos\n";
             return $encontrados;
+
         } catch (Exception $e) {
             echo "❌ Error: " . $e->getMessage() . "\n";
             return 0;
         }
     }
 
-    // ============================================
-    // MÉTODOS AUXILIARES
-    // ============================================
-
-    private function callAPI($url)
+    private function obtenerFeed($url)
     {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Accept: application/json']);
-
+        
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
@@ -202,8 +221,9 @@ class CSIC
 
     public function probar()
     {
-        echo "✅ CSIC configurado correctamente\n";
+        echo "✅ PLACSP configurado correctamente\n";
         echo "📁 Fuente ID: " . $this->fuenteId . "\n";
+        echo "📡 Endpoint: https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom\n";
         return true;
     }
 }
