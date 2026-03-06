@@ -1,10 +1,10 @@
 <?php
-// Fuentes/PLACSP.php
-// Plataforma de Contratación del Sector Público - Feed ATOM oficial
+// Fuentes/TED.php
+// Tenders Electronic Daily - API v3 con query DSL
 
 require_once __DIR__ . '/../Core/Database.php';
 
-class PLACSP
+class TED
 {
     private $pdo;
     private $fuenteId;
@@ -29,30 +29,30 @@ class PLACSP
     private function obtenerFuenteId()
     {
         try {
-            $stmt = $this->pdo->prepare("SELECT id FROM fuentes WHERE nombre_corto = 'placsp'");
+            $stmt = $this->pdo->prepare("SELECT id FROM fuentes WHERE nombre_corto = 'ted'");
             $stmt->execute();
             $result = $stmt->fetch();
 
             if (!$result) {
                 $stmt = $this->pdo->prepare("INSERT INTO fuentes (nombre, nombre_corto, tipo, url_base, script_asociado) VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([
-                    'Plataforma de Contratación',
-                    'placsp',
+                    'TED - Unión Europea',
+                    'ted',
                     'licitacion',
-                    'https://contrataciondelsectorpublico.gob.es',
-                    'PLACSP.php'
+                    'https://ted.europa.eu',
+                    'TED.php'
                 ]);
                 return $this->pdo->lastInsertId();
             }
             return $result['id'];
         } catch (PDOException $e) {
-            die("Error con fuente PLACSP: " . $e->getMessage());
+            die("Error con fuente TED: " . $e->getMessage());
         }
     }
 
     public function ejecutar($busquedaId, $dias = 30)
     {
-        echo "\n🔍 Buscando en Plataforma de Contratación (feed ATOM)...\n";
+        echo "\n🔍 Buscando en TED (Unión Europea)...\n";
 
         try {
             $busqueda = $this->getBusqueda($busquedaId);
@@ -61,81 +61,79 @@ class PLACSP
             $palabrasUsuario = array_map('trim', explode(',', $busqueda['palabras_clave']));
             $encontrados = 0;
 
-            // Calcular fecha límite
-            $fechaLimite = date('Y-m-d', strtotime("-$dias days"));
+            // ============================================================
+            // CONSTRUCCIÓN DE LA CONSULTA DSL (según tu corrección)
+            // ============================================================
 
-            // URL del feed ATOM completo
-            $url = "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom";
+            // 1. Fecha en formato simple YYYY-MM-DD
+            $fechaDesde = date('Y-m-d', strtotime("-$dias days"));
 
-            echo "📡 Consultando feed maestro: $url\n";
+            // 2. Lista de CPVs para la query
+            $cpvList = implode(',', $this->cpvPrioritarios);
 
-            $xmlData = $this->obtenerFeed($url);
-            if (!$xmlData) {
-                throw new Exception("No se pudo obtener el feed");
+            // 3. Construir la query DSL
+            $query = "cpv:($cpvList) AND publicationDate>$fechaDesde AND buyerCountry:ES";
+
+            echo "📡 Query: $query\n";
+
+            // 4. Datos para el POST (formato correcto)
+            $postData = [
+                'query' => $query,
+                'page' => 0,
+                'size' => 100,
+                'sort' => 'publicationDate:desc'
+            ];
+
+            $url = 'https://api.ted.europa.eu/v3/notices/search';
+            $jsonData = $this->callAPI($url, $postData);
+
+            if (!$jsonData) {
+                throw new Exception("No se pudo obtener datos");
             }
 
-            $xml = simplexml_load_string($xmlData, 'SimpleXMLElement', LIBXML_NOCDATA | LIBXML_NOWARNING);
-            if (!$xml || !isset($xml->entry)) {
-                echo "❌ No hay entradas en el feed\n";
-                return 0;
-            }
+            $datos = json_decode($jsonData, true);
+            $items = $datos['notices'] ?? [];
 
-            $items = $xml->entry;
-            echo "📊 Total licitaciones en feed: " . count($items) . "\n";
+            echo "   → " . count($items) . " licitaciones\n";
 
-            foreach ($items as $entry) {
-                $titulo = (string)$entry->title;
-                $link = (string)$entry->link['href'];
-                $descripcion = (string)$entry->summary;
-                $fechaPub = (string)$entry->updated;
+            foreach ($items as $item) {
+                $titulo = $item['title'] ?? 'Sin título';
 
-                // Filtrar por fecha
-                if (strtotime($fechaPub) < strtotime($fechaLimite)) {
-                    continue;
+                // Construir URL del detalle
+                $noticeId = $item['noticeId'] ?? $item['id'] ?? null;
+                $urlDetalle = $noticeId ? "https://ted.europa.eu/udl?uri=TED:NOTICE:$noticeId:TEXT:ES:HTML" : '#';
+
+                $descripcion = $item['description'] ?? $item['summary'] ?? '';
+                $fechaPub = $item['publicationDate'] ?? $item['date'] ?? date('Y-m-d');
+
+                // Extraer organismo (buyer)
+                $organismo = 'Unión Europea';
+                if (isset($item['buyer']['name'])) {
+                    $organismo = $item['buyer']['name'];
                 }
 
-                // Buscar organismo en el contenido (intentar extraerlo)
-                $organismo = $this->extraerOrganismo($descripcion, $titulo);
+                $textoCompleto = $titulo . ' ' . $descripcion . ' ' . $organismo;
+                $keywordsEncontradas = $this->buscarKeywords($textoCompleto, $palabrasUsuario);
 
-                // Buscar presupuesto en el contenido
-                $presupuesto = $this->extraerPresupuesto($descripcion);
-
-                // Buscar CPV en el contenido
-                $contieneCPV = false;
-                $contenidoCompleto = $titulo . ' ' . $descripcion;
-                foreach ($this->cpvPrioritarios as $cpv) {
-                    if (strpos($contenidoCompleto, $cpv) !== false) {
-                        $contieneCPV = true;
-                        break;
-                    }
-                }
-
-                // Buscar palabras clave del usuario
-                $keywordsEncontradas = $this->buscarKeywords($contenidoCompleto, $palabrasUsuario);
-
-                if ($contieneCPV || !empty($keywordsEncontradas)) {
-                    if ($contieneCPV && empty($keywordsEncontradas)) {
-                        $keywordsEncontradas = ['CPV prioritario'];
-                    }
-
+                if (!empty($keywordsEncontradas)) {
                     if ($this->guardarResultado(
                         $busquedaId,
                         $titulo,
                         $descripcion,
                         $organismo,
-                        $presupuesto,
+                        null,
                         date('Y-m-d', strtotime($fechaPub)),
                         null,
-                        $link,
+                        $urlDetalle,
                         $keywordsEncontradas
                     )) {
                         $encontrados++;
-                        echo "   ✅ " . mb_substr($titulo, 0, 60) . "...\n";
+                        echo "     ✅ " . mb_substr($titulo, 0, 60) . "...\n";
                     }
                 }
             }
 
-            echo "\n✅ PLACSP procesado: $encontrados resultados nuevos\n";
+            echo "\n✅ TED procesado: $encontrados resultados nuevos\n";
             return $encontrados;
         } catch (Exception $e) {
             echo "❌ Error: " . $e->getMessage() . "\n";
@@ -143,46 +141,7 @@ class PLACSP
         }
     }
 
-    private function extraerOrganismo($descripcion, $titulo)
-    {
-        $texto = $descripcion . ' ' . $titulo;
-
-        // Patrones comunes
-        if (preg_match('/(AYUNTAMIENTO DE [^<.,]+)/i', $texto, $match)) {
-            return trim($match[1]);
-        }
-        if (preg_match('/(DIPUTACIÓN DE [^<.,]+)/i', $texto, $match)) {
-            return trim($match[1]);
-        }
-        if (preg_match('/(UNIVERSIDAD DE [^<.,]+)/i', $texto, $match)) {
-            return trim($match[1]);
-        }
-        if (preg_match('/(MINISTERIO DE [^<.,]+)/i', $texto, $match)) {
-            return trim($match[1]);
-        }
-        if (preg_match('/(CONSELLERÍA DE [^<.,]+)/i', $texto, $match)) {
-            return trim($match[1]);
-        }
-        if (preg_match('/(FUNDACIÓN [^<.,]+)/i', $texto, $match)) {
-            return trim($match[1]);
-        }
-        if (preg_match('/(PARQUE NACIONAL [^<.,]+)/i', $texto, $match)) {
-            return trim($match[1]);
-        }
-
-        return 'Organismo no especificado';
-    }
-
-    private function extraerPresupuesto($texto)
-    {
-        // Buscar patrones de importe: 45.000€, 45,000€, 45000€
-        if (preg_match('/(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)\s*€/', $texto, $matches)) {
-            $importe = str_replace(['.', ','], ['', '.'], $matches[1]);
-            return (float)$importe;
-        }
-        return null;
-    }
-    private function obtenerFeed($url)
+    private function callAPI($url, $postData = null)
     {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -191,6 +150,16 @@ class PLACSP
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+
+        $headers = ['Accept: application/json'];
+
+        if ($postData) {
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+            $headers[] = 'Content-Type: application/json';
+        }
+
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -265,9 +234,10 @@ class PLACSP
 
     public function probar()
     {
-        echo "✅ PLACSP configurado correctamente\n";
+        echo "✅ TED configurado correctamente\n";
         echo "📁 Fuente ID: " . $this->fuenteId . "\n";
-        echo "📡 Endpoint: https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom\n";
+        echo "📡 CPVs a consultar: " . implode(', ', $this->cpvPrioritarios) . "\n";
+        echo "⚠️ Límites: 600 visualizaciones/6min, 700 requests/minuto\n";
         return true;
     }
 }

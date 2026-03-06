@@ -77,3 +77,23 @@ function actualizarEstadoVisual(id, nuevoEstado) {
     }
   }
 }
+// Función para actualizar contadores
+function actualizarContadores() {
+  fetch("estadisticas_estados.php")
+    .then((response) => response.json())
+    .then((data) => {
+      // Actualizar los valores en el DOM
+      document.querySelector(
+        'div[style*="border-left: 4px solid #6b7280"] div:first-child',
+      ).textContent = data.pendientes;
+      document.querySelector(
+        'div[style*="border-left: 4px solid #10b981"] div:first-child',
+      ).textContent = data.interesantes;
+      document.querySelector(
+        'div[style*="border-left: 4px solid #ef4444"] div:first-child',
+      ).textContent = data.descartados;
+    });
+}
+
+// Modificar la función cambiarEstado para que llame a actualizarContadores después del éxito
+// Busca la línea donde estaba location.reload() y sustitúyela por actualizarContadores()

@@ -107,6 +107,15 @@ $stats = [
     'ultima' => $pdo->query("SELECT MAX(fecha_deteccion) FROM resultados")->fetchColumn()
 ];
 
+// ============================================
+// CONTADORES POR ESTADO
+// ============================================
+$contadores = [
+    'pendientes' => $pdo->query("SELECT COUNT(*) FROM resultados WHERE estado_usuario = 0")->fetchColumn(),
+    'interesantes' => $pdo->query("SELECT COUNT(*) FROM resultados WHERE estado_usuario = 1")->fetchColumn(),
+    'descartados' => $pdo->query("SELECT COUNT(*) FROM resultados WHERE estado_usuario = 2")->fetchColumn()
+];
+
 // Palabras clave de ciencia y audiovisual (para clasificar)
 $keywordsCiencia = ['divulgación científica', 'investigación', 'ciencia', 'astronomía', 'cambio climático', 'medio ambiente', 'biodiversidad', 'tecnología'];
 $keywordsAV = ['producción audiovisual', 'vídeo', 'streaming', 'documental', 'grabación', 'cobertura', 'contenido multimedia', 'postproducción'];
@@ -246,6 +255,24 @@ $busquedas = $pdo->query("SELECT id, nombre, palabras_clave FROM busquedas ORDER
             <div class="stat-card">
                 <h3><?= $stats['ultima'] ? date('d/m/Y', strtotime($stats['ultima'])) : '-' ?></h3>
                 <p>Última detección</p>
+            </div>
+        </div>
+        <!-- ============================================
+            CONTADORES POR ESTADO
+        ============================================ -->
+
+        <div style="display: flex; gap: 1rem; margin-bottom: 2rem; justify-content: center;">
+            <div style="background: white; border-radius: 0.75rem; padding: 1rem 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid #6b7280; flex: 1; text-align: center;">
+                <div style="font-size: 2rem; font-weight: bold; color: #6b7280;"><?= $contadores['pendientes'] ?></div>
+                <div style="color: #6b7280; font-size: 0.9rem;">⏳ Pendientes</div>
+            </div>
+            <div style="background: white; border-radius: 0.75rem; padding: 1rem 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid #10b981; flex: 1; text-align: center;">
+                <div style="font-size: 2rem; font-weight: bold; color: #10b981;"><?= $contadores['interesantes'] ?></div>
+                <div style="color: #10b981; font-size: 0.9rem;">⭐ Interesantes</div>
+            </div>
+            <div style="background: white; border-radius: 0.75rem; padding: 1rem 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid #ef4444; flex: 1; text-align: center;">
+                <div style="font-size: 2rem; font-weight: bold; color: #ef4444;"><?= $contadores['descartados'] ?></div>
+                <div style="color: #ef4444; font-size: 0.9rem;">❌ Descartados</div>
             </div>
         </div>
 
