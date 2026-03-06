@@ -1,24 +1,31 @@
 <?php
-// Fuentes/ZaragozaAPI.php
-// Ayuntamiento de Zaragoza - Scraper de contratación pública
+// Fuentes/CSIC_PLACSP.php
+// CSIC a través del feed ATOM de PLACSP
 
 require_once __DIR__ . '/../Core/Database.php';
 
-class ZaragozaAPI
+class CSIC_PLACSP
 {
     private $pdo;
     private $fuenteId;
 
-    private $cpvServicios = [
+    // Variantes del nombre del CSIC
+    private $organismosCSIC = [
+        'CSIC',
+        'Consejo Superior de Investigaciones Científicas',
+        'AGENCIA ESTATAL CONSEJO SUPERIOR DE INVESTIGACIONES CIENTIFICICAS',
+        'AGENCIA ESTATAL CSIC'
+    ];
+
+    // CPVs de servicios audiovisuales
+    private $cpvPrioritarios = [
         '92100000',
         '92111000',
         '92112000',
         '92113000',
         '92220000',
         '79341000',
-        '79961000',
-        '72300000',
-        '72400000'
+        '79961000'
     ];
 
     public function __construct()
@@ -30,118 +37,111 @@ class ZaragozaAPI
     private function obtenerFuenteId()
     {
         try {
-            $stmt = $this->pdo->prepare("SELECT id FROM fuentes WHERE nombre_corto = 'zaragoza'");
+            $stmt = $this->pdo->prepare("SELECT id FROM fuentes WHERE nombre_corto = 'csic_placsp'");
             $stmt->execute();
             $result = $stmt->fetch();
 
             if (!$result) {
                 $stmt = $this->pdo->prepare("INSERT INTO fuentes (nombre, nombre_corto, tipo, url_base, script_asociado) VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([
-                    'Ayuntamiento de Zaragoza - Contratación',
-                    'zaragoza',
+                    'CSIC (vía PLACSP)',
+                    'csic_placsp',
                     'licitacion',
-                    'https://www.zaragoza.es',
-                    'ZaragozaAPI.php'
+                    'https://contrataciondelsectorpublico.gob.es',
+                    'CSIC_PLACSP.php'
                 ]);
                 return $this->pdo->lastInsertId();
             }
             return $result['id'];
         } catch (PDOException $e) {
-            die("Error con fuente Zaragoza: " . $e->getMessage());
+            die("Error con fuente CSIC_PLACSP: " . $e->getMessage());
         }
     }
 
     public function ejecutar($busquedaId, $dias = 360)
     {
-        echo "\n🔍 Buscando en Zaragoza...\n";
+        echo "\n🔍 Buscando CSIC en PLACSP...\n";
 
         try {
             $busqueda = $this->getBusqueda($busquedaId);
             if (!$busqueda) throw new Exception("Búsqueda no encontrada");
 
-            // URL base de búsqueda
-            $url = "https://www.zaragoza.es/sede/servicio/contratacion-publica.json?q=audiovisual&rows=100";
-
-            echo "📡 Consultando: $url\n";
-
-            $html = $this->obtenerHTML($url);
-            if (!$html) {
-                throw new Exception("No se pudo obtener el HTML");
-            }
-
-            // Cargar HTML
-            $dom = new DOMDocument();
-            libxml_use_internal_errors(true); // Ignorar warnings de HTML
-            $dom->loadHTML($html);
-            libxml_clear_errors();
-
-            $xpath = new DOMXPath($dom);
-
-            // Buscar todos los artículos de contratos (basado en la estructura real)
-            $contratos = $xpath->query("//article[contains(@class, 'col-xs-12') and contains(@class, 'col-md-6')]");
-
-            echo "📊 Total contratos encontrados: " . $contratos->length . "\n";
-
             $palabrasUsuario = array_map('trim', explode(',', $busqueda['palabras_clave']));
             $encontrados = 0;
 
-            foreach ($contratos as $contrato) {
-                // Extraer TÍTULO y URL
-                $tituloNode = $xpath->query(".//h2/a", $contrato);
-                if ($tituloNode->length == 0) continue;
+            // URL del feed ATOM completo
+            $url = "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom";
 
-                $titulo = trim($tituloNode->item(0)->nodeValue);
-                $urlDetalle = 'https://www.zaragoza.es' . $tituloNode->item(0)->getAttribute('href');
+            echo "📡 Consultando feed maestro: $url\n";
 
-                // Extraer IMPORTE
-                $importe = null;
-                $importeNodes = $xpath->query(".//*[contains(text(), 'Importe licitacion')]", $contrato);
-                if ($importeNodes->length > 0) {
-                    $importeTexto = $importeNodes->item(0)->nodeValue;
-                    if (preg_match('/(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)€/', $importeTexto, $matches)) {
-                        $importe = (float)str_replace(['.', ','], ['', '.'], $matches[1]);
+            $xmlData = $this->obtenerFeed($url);
+            if (!$xmlData) {
+                throw new Exception("No se pudo obtener el feed");
+            }
+
+            $xml = simplexml_load_string($xmlData, 'SimpleXMLElement', LIBXML_NOCDATA | LIBXML_NOWARNING);
+            if (!$xml || !isset($xml->entry)) {
+                echo "❌ No hay entradas en el feed\n";
+                return 0;
+            }
+
+            $items = $xml->entry;
+            echo "📊 Total licitaciones en feed: " . count($items) . "\n";
+
+            // Filtrar por fecha
+            $fechaLimite = date('Y-m-d', strtotime("-$dias days"));
+
+            foreach ($items as $entry) {
+                $titulo = (string)$entry->title;
+                $link = (string)$entry->link['href'];
+                $descripcion = (string)$entry->summary;
+                $fechaPub = (string)$entry->updated;
+                $contenidoCompleto = $titulo . ' ' . $descripcion;
+
+                // Filtrar por fecha
+                if (strtotime($fechaPub) < strtotime($fechaLimite)) {
+                    continue;
+                }
+
+                // Verificar si es del CSIC
+                $esCSIC = false;
+                foreach ($this->organismosCSIC as $org) {
+                    if (stripos($contenidoCompleto, $org) !== false) {
+                        $esCSIC = true;
+                        break;
                     }
                 }
 
-                // Extraer FECHA LÍMITE
-                $fechaLimite = null;
-                $fechaNodes = $xpath->query(".//*[contains(text(), 'Plazo de presentación')]", $contrato);
-                if ($fechaNodes->length > 0) {
-                    $fechaTexto = $fechaNodes->item(0)->nodeValue;
-                    if (preg_match('/(\d{2}\/\d{2}\/\d{4})/', $fechaTexto, $matches)) {
-                        $partes = explode('/', $matches[1]);
-                        $fechaLimite = "{$partes[2]}-{$partes[1]}-{$partes[0]}";
+                if (!$esCSIC) {
+                    continue;
+                }
+
+                // Verificar CPV
+                $tieneCPV = false;
+                foreach ($this->cpvPrioritarios as $cpv) {
+                    if (strpos($contenidoCompleto, $cpv) !== false) {
+                        $tieneCPV = true;
+                        break;
                     }
                 }
 
-                // Extraer ORGANISMO
-                $organismo = 'Ayuntamiento de Zaragoza';
-                $organismoNodes = $xpath->query(".//a[contains(@href, 'entidad')]", $contrato);
-                if ($organismoNodes->length > 0) {
-                    $organismo = trim($organismoNodes->item(0)->nodeValue);
-                }
+                // Buscar palabras clave
+                $keywordsEncontradas = $this->buscarKeywords($contenidoCompleto, $palabrasUsuario);
 
-                // Texto completo para búsqueda
-                $textoCompleto = $titulo . ' ' . $organismo;
-                $keywordsEncontradas = $this->buscarKeywords($textoCompleto, $palabrasUsuario);
-
-                // Detección especial de Distrito 7
-                $esDistrito7 = stripos($textoCompleto, 'distrito 7') !== false;
-
-                if (!empty($keywordsEncontradas) || $esDistrito7) {
-                    if ($esDistrito7) {
-                        $keywordsEncontradas[] = 'DISTRITO 7';
+                if ($tieneCPV || !empty($keywordsEncontradas)) {
+                    if ($tieneCPV && empty($keywordsEncontradas)) {
+                        $keywordsEncontradas = ['CPV prioritario'];
                     }
 
                     if ($this->guardarResultado(
                         $busquedaId,
                         $titulo,
-                        '', // descripción vacía
-                        $organismo,
-                        $importe,
-                        date('Y-m-d'), // fecha publicación
-                        $fechaLimite,
-                        $urlDetalle,
+                        $descripcion,
+                        'CSIC',
+                        null,
+                        date('Y-m-d', strtotime($fechaPub)),
+                        null,
+                        $link,
                         $keywordsEncontradas
                     )) {
                         $encontrados++;
@@ -150,7 +150,7 @@ class ZaragozaAPI
                 }
             }
 
-            echo "✅ Zaragoza procesada: $encontrados nuevos resultados\n";
+            echo "\n✅ CSIC (PLACSP) procesado: $encontrados resultados\n";
             return $encontrados;
         } catch (Exception $e) {
             echo "❌ Error: " . $e->getMessage() . "\n";
@@ -158,14 +158,14 @@ class ZaragozaAPI
         }
     }
 
-    private function obtenerHTML($url)
+    private function obtenerFeed($url)
     {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
 
         $response = curl_exec($ch);
@@ -176,7 +176,6 @@ class ZaragozaAPI
             echo "   HTTP $httpCode\n";
             return null;
         }
-
         return $response;
     }
 
@@ -200,12 +199,10 @@ class ZaragozaAPI
     private function guardarResultado($busquedaId, $titulo, $descripcion, $organismo, $presupuesto, $fechaPub, $fechaLim, $url, $keywords)
     {
         try {
-            // Verificar si ya existe
             $stmt = $this->pdo->prepare("SELECT id FROM resultados WHERE url_detalle = ? AND busqueda_id = ?");
             $stmt->execute([$url, $busquedaId]);
             if ($stmt->fetch()) return false;
 
-            // Insertar
             $stmt = $this->pdo->prepare("
                 INSERT INTO resultados (
                     busqueda_id, fuente_id, titulo, descripcion_corta, organismo,
@@ -244,8 +241,9 @@ class ZaragozaAPI
 
     public function probar()
     {
-        echo "✅ Zaragoza scraper configurado correctamente\n";
+        echo "✅ CSIC_PLACSP configurado correctamente\n";
         echo "📁 Fuente ID: " . $this->fuenteId . "\n";
+        echo "📡 Buscando organismos: " . implode(', ', $this->organismosCSIC) . "\n";
         return true;
     }
 }

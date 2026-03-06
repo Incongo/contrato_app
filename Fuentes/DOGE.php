@@ -133,7 +133,7 @@ class DOGE
         $encontrados = 0;
 
         // FILTRO 1: Solo últimos 30 DÍAS de publicación
-        $fechaLimitePublicacion = strtotime('-30 days');
+        $fechaLimitePublicacion = strtotime('-360 days');
         $fechaActual = date('Y-m-d H:i:s');
 
         foreach ($items as $item) {

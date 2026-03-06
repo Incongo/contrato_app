@@ -68,7 +68,7 @@ class DIBAAPI
     /**
      * Método principal: ejecutar búsqueda
      */
-    public function ejecutar($busquedaId, $dias = 30)
+    public function ejecutar($busquedaId, $dias = 360)
     {
         echo "\n🔍 Buscando en Diputació de Barcelona (API)...\n";
 

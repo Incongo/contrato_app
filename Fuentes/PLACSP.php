@@ -50,7 +50,7 @@ class PLACSP
         }
     }
 
-    public function ejecutar($busquedaId, $dias = 30)
+    public function ejecutar($busquedaId, $dias = 360)
     {
         echo "\n🔍 Buscando en Plataforma de Contratación (feed ATOM)...\n";
 
@@ -66,9 +66,9 @@ class PLACSP
 
             // URL del feed ATOM completo
             $url = "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom";
-            
+
             echo "📡 Consultando feed maestro: $url\n";
-            
+
             $xmlData = $this->obtenerFeed($url);
             if (!$xmlData) {
                 throw new Exception("No se pudo obtener el feed");
@@ -131,7 +131,6 @@ class PLACSP
 
             echo "\n✅ PLACSP procesado: $encontrados resultados nuevos\n";
             return $encontrados;
-
         } catch (Exception $e) {
             echo "❌ Error: " . $e->getMessage() . "\n";
             return 0;
@@ -147,7 +146,7 @@ class PLACSP
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        
+
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
